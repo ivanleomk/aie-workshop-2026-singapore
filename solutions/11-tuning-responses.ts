@@ -9,7 +9,7 @@ import * as logfire from '@pydantic/logfire-node';
 logfire.configure({
     token: process.env.LOGFIRE_TOKEN,
     serviceName: 'daytona-coding-agent',
-    scrubbing: false,
+    scrubbing: false
 });
 
 
@@ -50,17 +50,20 @@ class Agent {
         private model: string,
         private tools: Record<string, { definition: Interactions.Tool, function: Function }>,
         private systemInstruction: string = "You are a helpful coding assistant.",
-        private context?: Context
+        private context?: Context,
+        private previousInteractionId?: string
     ) {
         this.client = new GoogleGenAI({});
     }
 
-    async run(currentInput: string | Interactions.Content[]): Promise<Interactions.Interaction> {
+    async run(currentInput: string | Interactions.Content[], turnCount: number = 0): Promise<Interactions.Interaction> {
         const activeTools = [
             ...Object.values(this.tools).map(t => t.definition),
             { type: "google_search" as const },
             { type: "url_context" as const }
         ];
+
+        const prevInteractionId = this.previousInteractionId;
 
         const response: Interactions.Interaction = await logfire.span(
             'Gemini API Call',
@@ -89,7 +92,10 @@ class Agent {
 
         await logfire.span(
             'model-response',
-            { rawResponse: JSON.stringify(response, null, 2) },
+            {
+                rawResponse: JSON.stringify(response, null, 2),
+                previousInteractionId: prevInteractionId
+            },
             {},
             async () => {
                 for (const output of response.outputs || []) {
@@ -136,7 +142,14 @@ class Agent {
 
         // If there were tool calls, recurse and send results back
         if (results.length > 0) {
-            return this.run(results);
+            if (turnCount >= 2) {
+                console.log(chalk.yellow("\n[ System ] Max tool turns reached. Nudging model to finalize..."));
+                results.push({
+                    type: "text",
+                    text: "SYSTEM HINT: You have reached the maximum number of tool execution turns. Do not call any more tools. Please summarize your findings so far and provide your final response to the user."
+                });
+            }
+            return this.run(results, turnCount + 1);
         }
 
         // Return the final response
@@ -227,11 +240,17 @@ async function main() {
                 }
             };
 
+            const resumeId = process.argv[2];
+            if (resumeId) {
+                console.log(chalk.magenta(`Resuming from interaction ID: ${resumeId}`));
+            }
+
             const agent = new Agent(
                 "gemini-3-flash-preview",
                 agentTools,
                 "You are a highly capable AI coding assistant. You can read files, write files, and execute bash commands to solve the user's task.",
-                context
+                context,
+                resumeId
             );
 
             console.log(chalk.green("Google Tools Agent is ready! Type 'exit' or 'quit' to close."));

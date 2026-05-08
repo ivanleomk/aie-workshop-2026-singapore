@@ -3,37 +3,12 @@ import chalk from "chalk";
 import * as readline from "node:readline/promises";
 import * as fs from "node:fs";
 import { execSync } from "node:child_process";
-import { Daytona, Sandbox } from "@daytona/sdk";
 
-
-class Context {
-    public daytona: Daytona;
-    public sandbox!: Sandbox;
-
-    constructor() {
-        this.daytona = new Daytona();
-
-    }
-
-    async init() {
-        console.log(chalk.blue("Initializing Daytona Sandbox..."));
-        this.sandbox = await this.daytona.create({ language: 'typescript' });
-        console.log(chalk.green(`Sandbox created successfully (ID: ${this.sandbox.id})`));
-    }
-
-    async cleanup() {
-        console.log(chalk.blue("Cleaning up Daytona Sandbox..."));
-        await this.daytona.delete(this.sandbox);
-        console.log(chalk.green("✨ Done."));
-    }
-}
 const originalWarn = console.warn;
 console.warn = (...args) => {
     if (typeof args[0] === 'string' && args[0].includes('Interactions usage is experimental')) return;
     originalWarn(...args);
 };
-
-
 
 class Agent {
     private client: GoogleGenAI;
@@ -42,8 +17,7 @@ class Agent {
     constructor(
         private model: string,
         private tools: Record<string, { definition: Interactions.Tool, function: Function }>,
-        private systemInstruction: string = "You are a helpful coding assistant.",
-        private context?: Context
+        private systemInstruction: string = "You are a helpful coding assistant."
     ) {
         this.client = new GoogleGenAI({});
     }
@@ -51,8 +25,8 @@ class Agent {
     async run(currentInput: string | Interactions.Content[]): Promise<Interactions.Interaction> {
         const activeTools = [
             ...Object.values(this.tools).map(t => t.definition),
-            { type: "google_search" as const },
-            { type: "url_context" as const }
+            { type: "google_search" },
+            { type: "url_context" }
         ];
 
         const response: Interactions.Interaction = await this.client.interactions.create({
@@ -69,7 +43,7 @@ class Agent {
 
         const results: Interactions.Content[] = [];
 
-        for (const output of response.outputs || []) {
+        response.outputs?.forEach((output: Interactions.Content) => {
             if (output.type === "thought") {
                 output.summary?.forEach(summaryItem => {
                     if (summaryItem.type === "text") {
@@ -86,7 +60,7 @@ class Agent {
 
                 let result;
                 if (this.tools[funcName]) {
-                    result = await this.tools[funcName].function(args, this.context);
+                    result = this.tools[funcName].function(args);
                 } else {
                     result = "Error: Tool not found";
                 }
@@ -106,7 +80,7 @@ class Agent {
                     result: [{ type: "text", text: JSON.stringify(result) }]
                 });
             }
-        }
+        });
 
         // If there were tool calls, recurse and send results back
         if (results.length > 0) {
@@ -124,9 +98,6 @@ async function main() {
         output: process.stdout
     });
 
-    const context = new Context();
-    await context.init();
-
     const agentTools = {
         readFile: {
             definition: {
@@ -139,10 +110,9 @@ async function main() {
                     required: ["filePath"]
                 }
             },
-            function: async (args: { filePath: string }, ctx: Context) => {
+            function: (args: Record<string, any>) => {
                 try {
-                    const content = await ctx.sandbox.fs.downloadFile(args.filePath);
-                    return content.toString("utf-8");
+                    return fs.readFileSync(args.filePath, "utf-8");
                 } catch (err: any) {
                     return `Error reading file: ${err.message}`;
                 }
@@ -162,9 +132,9 @@ async function main() {
                     required: ["filePath", "content"]
                 }
             },
-            function: async (args: { filePath: string; content: string }, ctx: Context) => {
+            function: (args: Record<string, any>) => {
                 try {
-                    await ctx.sandbox.fs.uploadFile(Buffer.from(args.content, "utf-8"), args.filePath);
+                    fs.writeFileSync(args.filePath, args.content, "utf-8");
                     return "File successfully updated.";
                 } catch (err: any) {
                     return `Error writing file: ${err.message}`;
@@ -182,15 +152,12 @@ async function main() {
                     required: ["command"]
                 }
             },
-            function: async (args: { command: string }, ctx: Context) => {
+            function: (args: Record<string, any>) => {
                 try {
-                    const response = await ctx.sandbox.process.executeCommand(args.command);
-                    if (response.exitCode !== 0) {
-                        return `Command failed with exit code ${response.exitCode}\nOutput: ${response.result || ""}`;
-                    }
-                    return (response.result || "").trim() || "Command executed successfully with no output.";
+                    const output = execSync(args.command, { encoding: "utf-8", timeout: 15000 });
+                    return output.trim() || "Command executed successfully with no output.";
                 } catch (err: any) {
-                    return `Command failed: ${err.message}`;
+                    return `Command failed: ${err.message}\nOutput: ${err.stdout?.toString()}`;
                 }
             }
         }
@@ -199,11 +166,10 @@ async function main() {
     const agent = new Agent(
         "gemini-3-flash-preview",
         agentTools,
-        "You are a highly capable AI coding assistant. You can read files, write files, and execute bash commands to solve the user's task.",
-        context
+        "You are a highly capable AI coding assistant. You can read files, write files, and execute bash commands to solve the user's task."
     );
 
-    console.log(chalk.green("Google Tools Agent is ready! Type 'exit' or 'quit' to close."));
+    console.log(chalk.green("💻 Google Tools Agent is ready! Type 'exit' or 'quit' to close."));
     console.log(chalk.yellow("Try asking: 'What is the latest news?' or 'Summarize https://en.wikipedia.org/wiki/Artificial_intelligence'\n"));
 
     while (true) {
@@ -219,7 +185,6 @@ async function main() {
     }
 
     rl.close();
-    await context.cleanup();
 }
 
 main().catch(console.error);
