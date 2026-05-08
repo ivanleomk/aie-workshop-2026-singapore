@@ -9,82 +9,68 @@ console.warn = (...args) => {
     originalWarn(...args);
 };
 
-// 1. Define our tool functions
-const localTools = {
-    get_weather: (args: { location: string }) => {
-        console.log(chalk.cyan(`\n[Server: Executing local function getWeather('${args.location}')...]`));
-        return { temperature: 72, condition: "Sunny" };
-    }
-};
-
 class Agent {
     private client: GoogleGenAI;
     private previousInteractionId: string | undefined = undefined;
-    private tools = [{
-        type: "function" as const,
-        name: "get_weather",
-        description: "Get the current weather for a specific location.",
-        parameters: { type: "object", properties: { location: { type: "string" } }, required: ["location"] }
-    }];
 
-    constructor() {
+    constructor(
+        private model: string,
+        private tools: Record<string, { definition: Interactions.Tool, function: Function }>,
+        private systemInstruction: string = "You are a helpful assistant."
+    ) {
         this.client = new GoogleGenAI({});
     }
 
-    async run(userPrompt: string) {
-        let currentInput: Interactions.Content[] = [{ type: "text", text: userPrompt }];
+    async run(currentInput: string | Interactions.Content[]): Promise<Interactions.Interaction> {
+        const response: Interactions.Interaction = await this.client.interactions.create({
+            model: this.model,
+            input: currentInput,
+            tools: Object.values(this.tools).map(t => t.definition),
+            system_instruction: this.systemInstruction,
+            previous_interaction_id: this.previousInteractionId,
+            generation_config: { thinking_level: "medium", thinking_summaries: "auto" }
+        });
 
-        // --- The Agent Loop ---
-        // We loop until the model gives us a final text response!
-        while (true) {
-            console.log(chalk.dim(`\n[Agent: Sending request to Gemini...]`));
-            const response: Interactions.Interaction = await this.client.interactions.create({
-                model: "gemini-3-flash-preview",
-                input: currentInput,
-                tools: this.tools,
-                previous_interaction_id: this.previousInteractionId,
-                generation_config: { thinking_level: "medium", thinking_summaries: "auto" }
-            });
+        // Print the raw API response so students can see thoughts and tool calls
+        printRawResponse(response);
 
-            printRawResponse(response);
+        // Update interaction ID for the next turn
+        this.previousInteractionId = response.id;
 
-            // Update interaction ID for the next turn
-            this.previousInteractionId = response.id;
+        const results: Interactions.Content[] = [];
 
-            // If the model is done and gave us text, break the loop!
-            if (response.status !== "requires_action") {
-                console.log(chalk.green("\n[Agent: Finished task!]"));
-                break;
-            }
+        response.outputs?.forEach((output: Interactions.Content) => {
+            if (output.type === "function_call") {
+                const funcName = output.name as string;
+                const args = output.arguments;
 
-            // Otherwise, it wants to call tools. Let's build the results array.
-            const results: Interactions.Content[] = [];
+                console.log(chalk.cyan(`\n[Function Call] ${funcName}(${JSON.stringify(args)})`));
 
-            response.outputs?.forEach((output: Interactions.Content) => {
-                if (output.type === "function_call") {
-                    const funcName = output.name as keyof typeof localTools;
-                    const args = output.arguments;
-
-                    if (localTools[funcName]) {
-                        // Execute the local tool
-                        const result = localTools[funcName](args as any);
-
-                        // Add the result to the input for the next turn
-                        results.push({
-                            type: "function_result",
-                            name: funcName,
-                            call_id: output.id,
-                            result: [{ type: "text", text: JSON.stringify(result) }]
-                        });
-                    } else {
-                        console.error(chalk.red(`\n[Agent Error: Tool ${funcName} not found!]`));
-                    }
+                let result;
+                if (this.tools[funcName]) {
+                    result = this.tools[funcName].function(args);
+                } else {
+                    result = "Error: Tool not found";
                 }
-            });
 
-            // Set the current input to the function results for the next iteration
-            currentInput = results;
+                console.log(chalk.green(`[Function Response] ${JSON.stringify(result)}`));
+
+                results.push({
+                    type: "function_result",
+                    name: funcName,
+                    call_id: output.id,
+                    result: [{ type: "text", text: JSON.stringify(result) }]
+                });
+            }
+        });
+
+        // If there were tool calls, recurse and send results back
+        if (results.length > 0) {
+            return this.run(results);
         }
+
+        // Return the final response
+        return response;
     }
 }
 
@@ -94,18 +80,37 @@ async function main() {
         output: process.stdout
     });
 
-    const agent = new Agent();
+    const agentTools = {
+        get_weather: {
+            definition: {
+                type: "function" as const,
+                name: "get_weather",
+                description: "Get the current weather for a specific location.",
+                parameters: { type: "object", properties: { location: { type: "string" } }, required: ["location"] }
+            },
+            function: (args: Record<string, any>) => {
+                return { temperature: 72, condition: "Sunny" };
+            }
+        }
+    };
+
+    const agent = new Agent(
+        "gemini-3-flash-preview",
+        agentTools,
+        "You are a helpful assistant."
+    );
 
     console.log(chalk.green("🤖 Agent is ready! Type 'exit' or 'quit' to close."));
 
     while (true) {
         const input = await rl.question(chalk.blueBright("\nUser > "));
-
+        
         if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
             break;
         }
 
-        await agent.run(input);
+        // Run the agent, which handles all tool calls recursively until finished
+        await agent.run([{ type: "text", text: input }]);
     }
 
     rl.close();
