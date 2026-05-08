@@ -39,11 +39,11 @@ class Agent {
 
         response.outputs?.forEach((output: Interactions.Content) => {
             if (output.type === "thought") {
-                let thoughtText = output.text;
-                if (!thoughtText && output.summary && output.summary.length > 0) {
-                    thoughtText = output.summary[0].text;
-                }
-                console.log(chalk.dim(`\n[ thought ]\n${thoughtText?.trim()}`));
+                output.summary?.forEach(summaryItem => {
+                    if (summaryItem.type === "text") {
+                        console.log(chalk.dim(`\n[ Thought Summary  ]\n${summaryItem.text}`));
+                    }
+                });
             } else if (output.type === "text") {
                 console.log(chalk.white(`\n[ text ]\n${output.text}`));
             } else if (output.type === "function_call") {
@@ -168,7 +168,7 @@ async function main() {
 
     while (true) {
         const input = await rl.question(chalk.blueBright("User > "));
-        
+
         if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
             break;
         }
