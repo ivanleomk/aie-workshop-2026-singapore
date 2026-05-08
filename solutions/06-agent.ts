@@ -32,13 +32,13 @@ class Agent {
     }
 
     async run(userPrompt: string) {
-        let currentInput: any = [{ type: "text", text: userPrompt }];
+        let currentInput: Interactions.Content[] = [{ type: "text", text: userPrompt }];
 
         // --- The Agent Loop ---
         // We loop until the model gives us a final text response!
         while (true) {
             console.log(chalk.dim(`\n[Agent: Sending request to Gemini...]`));
-            const response = await this.client.interactions.create({
+            const response: Interactions.Interaction = await this.client.interactions.create({
                 model: "gemini-3-flash-preview",
                 input: currentInput,
                 tools: this.tools,
@@ -58,9 +58,9 @@ class Agent {
             }
 
             // Otherwise, it wants to call tools. Let's build the results array.
-            const results: any[] = [];
+            const results: Interactions.Content[] = [];
 
-            response.outputs?.forEach((output: any) => {
+            response.outputs?.forEach((output: Interactions.Content) => {
                 if (output.type === "function_call") {
                     const funcName = output.name as keyof typeof localTools;
                     const args = output.arguments;
@@ -100,7 +100,7 @@ async function main() {
 
     while (true) {
         const input = await rl.question(chalk.blueBright("\nUser > "));
-        
+
         if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
             break;
         }
