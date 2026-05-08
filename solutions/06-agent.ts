@@ -13,10 +13,6 @@ const localTools = {
     get_weather: (args: { location: string }) => {
         console.log(chalk.cyan(`\n[Server: Executing local function getWeather('${args.location}')...]`));
         return { temperature: 72, condition: "Sunny" };
-    },
-    get_time: (args: { timezone: string }) => {
-        console.log(chalk.cyan(`\n[Server: Executing local function get_time('${args.timezone}')...]`));
-        return { time: new Date().toLocaleTimeString('en-US', { timeZone: args.timezone }) };
     }
 };
 
@@ -28,14 +24,9 @@ async function main() {
         name: "get_weather",
         description: "Get the current weather for a specific location.",
         parameters: { type: "object", properties: { location: { type: "string" } }, required: ["location"] }
-    }, {
-        type: "function" as const,
-        name: "get_time",
-        description: "Get the current time for a specific timezone.",
-        parameters: { type: "object", properties: { timezone: { type: "string" } }, required: ["timezone"] }
     }];
 
-    const userPrompt = "What is the weather in Boston right now, and what time is it in Tokyo?";
+    const userPrompt = "What is the weather in Boston?";
     console.log(chalk.blueBright("\nUser > ") + userPrompt);
 
     let currentInput: Interactions.TurnInput = [{ type: "text", text: userPrompt }];
