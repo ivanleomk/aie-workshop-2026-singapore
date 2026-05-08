@@ -8,7 +8,8 @@ import * as logfire from '@pydantic/logfire-node';
 
 logfire.configure({
     token: process.env.LOGFIRE_TOKEN,
-    serviceName: 'daytona-coding-agent'
+    serviceName: 'daytona-coding-agent',
+    scrubbing: false
 });
 
 
@@ -61,6 +62,8 @@ class Agent {
             { type: "url_context" as const }
         ];
 
+        const prevInteractionId = this.previousInteractionId;
+
         const response: Interactions.Interaction = await logfire.span(
             'Gemini API Call',
             {
@@ -88,7 +91,10 @@ class Agent {
 
         await logfire.span(
             'model-response',
-            { rawResponse: JSON.stringify(response, null, 2) },
+            { 
+                rawResponse: JSON.stringify(response, null, 2),
+                previousInteractionId: prevInteractionId
+            },
             {},
             async () => {
                 for (const output of response.outputs || []) {
