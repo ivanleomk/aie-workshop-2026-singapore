@@ -22,6 +22,9 @@ Rather than hardcoding large payloads directly in your code, extract the exact `
 ### 3. Create a Scratchpad Script
 Create a local script (e.g., `scratch.ts`) to read your `input.json`, modify it to inject your experiments, and hit the Interactions API directly.
 
+> [!IMPORTANT]
+> **Do not modify the original System Instructions (SI) in your source files!** The purpose of this workflow is to keep your application logic intact while experimenting with system reminders and persona constraints by injecting them directly into the input payload.
+
 ```typescript
 import { GoogleGenAI } from "@google/genai";
 import * as fs from "node:fs";
