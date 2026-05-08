@@ -1,6 +1,5 @@
 import { GoogleGenAI, Interactions } from "@google/genai";
 import chalk from "chalk";
-import { printRawResponse } from "./lib/console";
 import * as readline from "node:readline/promises";
 import * as fs from "node:fs";
 import { execSync } from "node:child_process";
@@ -33,20 +32,25 @@ class Agent {
             generation_config: { thinking_level: "medium", thinking_summaries: "auto" }
         });
 
-        // Print the raw API response so students can see thoughts and tool calls
-        printRawResponse(response);
-
         // Update interaction ID for the next turn
         this.previousInteractionId = response.id;
 
         const results: Interactions.Content[] = [];
 
         response.outputs?.forEach((output: Interactions.Content) => {
-            if (output.type === "function_call") {
+            if (output.type === "thought") {
+                let thoughtText = output.text;
+                if (!thoughtText && output.summary && output.summary.length > 0) {
+                    thoughtText = output.summary[0].text;
+                }
+                console.log(chalk.dim(`\n[ thought ]\n${thoughtText?.trim()}`));
+            } else if (output.type === "text") {
+                console.log(chalk.white(`\n[ text ]\n${output.text}`));
+            } else if (output.type === "function_call") {
                 const funcName = output.name as string;
                 const args = output.arguments;
 
-                console.log(chalk.cyan(`\n[Function Call] ${funcName}(${JSON.stringify(args)})`));
+                console.log(chalk.cyan(`\n[ function_call ] ${funcName}(${JSON.stringify(args)})`));
 
                 let result;
                 if (this.tools[funcName]) {
@@ -61,7 +65,7 @@ class Agent {
                     resultStr = resultStr.substring(0, 500) + "... [truncated]";
                 }
 
-                console.log(chalk.green(`[Function Response] ${resultStr}`));
+                console.log(chalk.green(`[ function_response ]\n${resultStr}`));
 
                 results.push({
                     type: "function_result",
