@@ -11,3 +11,10 @@ code::after {
   content: none !important;
   display: none !important;
 }
+
+/* Prevent code block containers from overlapping the bottom logo */
+.two-cols .shiki {
+  max-height: 300px;
+  overflow-y: auto;
+  font-size: 0.8rem !important;
+}

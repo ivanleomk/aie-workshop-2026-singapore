@@ -13,7 +13,7 @@ layout: title
 speaker: Ivan Leo
 email: ileo@google.com
 website: ivanleo.com
-date: May 2026
+
 ---
 
 # Prompt to Production
