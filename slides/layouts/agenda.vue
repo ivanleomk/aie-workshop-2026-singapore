@@ -10,6 +10,6 @@
       <slot name="right" />
     </div>
 
-    <img src="/google_deepmind-192px.svg" class="absolute bottom-10 right-12 h-6" alt="Google DeepMind" />
+    <img src="/google_deepmind-192px.svg" class="absolute bottom-4 right-6 h-12 z-50" alt="Google DeepMind" />
   </div>
 </template>
