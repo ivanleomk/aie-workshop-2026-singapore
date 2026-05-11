@@ -82,7 +82,7 @@ We'll need a Gemini API key to use the SDK and start building our agent.
 
 - Head over to **[aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey)**
 - Click **Create API Key**
-- Save it in your project's `.env` file as `GEMINI_API_KEY`
+- Save it in your project's `.env` file as `GOOGLE_API_KEY`
 
 ::right::
 

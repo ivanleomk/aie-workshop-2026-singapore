@@ -1,6 +1,6 @@
 <template>
   <div class="slidev-layout title bg-white text-gray-800 h-full w-full">
-    <img src="/pdf_img-000.png" class="absolute top-10 left-12 h-8" alt="Google" />
+    <img src="/google_deepmind-192px.svg" class="absolute top-10 left-12 h-8" alt="Google DeepMind" />
     
     <div class="h-full flex flex-col justify-center">
       <div class="title-content ml-4">

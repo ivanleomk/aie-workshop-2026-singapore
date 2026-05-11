@@ -81,7 +81,7 @@
     </div>
 
     <!-- Google Logo -->
-    <img src="/pdf_img-000.png" class="absolute bottom-10 right-12 h-6 pointer-events-none" alt="Google" />
+    <img src="/google_deepmind-192px.svg" class="absolute bottom-10 right-12 h-6 pointer-events-none" alt="Google DeepMind" />
   </div>
 </template>
 
