@@ -1,6 +1,6 @@
 import { GoogleGenAI, Interactions } from "@google/genai";
 import chalk from "chalk";
-import { printRawResponse } from "./lib/console";
+import { getUserInput, printRawResponse } from "./lib/console";
 
 
 const originalWarn = console.warn;
@@ -20,7 +20,7 @@ async function main() {
 
     // The "Trap": Managing tool state manually
     // We have to keep a local array of every single step in the timeline
-    let history: Interactions.Turn[] = [];
+    let history: any[] = [];
 
     const tools = [{
         type: "function" as const,
@@ -30,11 +30,9 @@ async function main() {
     }];
 
     // --- TURN 1: The Request ---
-    const userPrompt = "What is the weather in Boston?";
-    console.log(chalk.blueBright("\nUser > ") + userPrompt);
+    const userPrompt = await getUserInput("User > ");
+    history.push({ type: "user_input", content: [{ type: "text", text: userPrompt }] });
 
-    // 1. Manually format and append the user input step
-    history.push({ role: "user", content: [{ type: "text", text: userPrompt }] });
 
     const response1 = await client.interactions.create({
         model: "gemini-3-flash-preview",
@@ -44,10 +42,7 @@ async function main() {
     });
 
     printRawResponse(response1);
-    history.push({
-        role: "model",
-        content: response1.outputs
-    })
+    history.push(...(response1.steps || []));
 
 
     if (response1.status !== "requires_action") {
@@ -55,22 +50,22 @@ async function main() {
         process.exit(1);
     }
 
-    response1.outputs?.forEach(output => {
+    response1.steps?.forEach(step => {
 
-        if (output.type === "function_call") {
-            const args = output.arguments;
+        if (step.type === "function_call") {
+            const args = step.arguments;
             console.log("location", args);
             const result = getWeather(args.location);
 
 
             // 3. Append the function result to our history
             history.push({
-                role: "user",
-                content: [{
-                    type: "function_result",
-                    name: "get_weather",
-                    call_id: output.id,
-                    result: [{ type: "text", text: JSON.stringify(result) }]
+                type: "function_result",
+                name: "get_weather",
+                call_id: step.id,
+                result: [{
+                    type: "text",
+                    text: JSON.stringify(result)
                 }]
             });
         }
@@ -82,6 +77,7 @@ async function main() {
     // 4. Send the massive history array back across the wire
     // We are paying input tokens for the user prompt, the thoughts, the tool call, AND the result!
     console.dir(history, { depth: null });
+
     const response2 = await client.interactions.create({
         model: "gemini-3-flash-preview",
         input: history,

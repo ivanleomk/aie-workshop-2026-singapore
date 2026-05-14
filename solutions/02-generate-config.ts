@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import chalk from "chalk";
 import { formatMarkdown } from "./lib/markdown";
-import { printRawResponse } from "./lib/console";
+import { printRawResponse, getUserInput } from "./lib/console";
 
 const originalWarn = console.warn;
 console.warn = (...args) => {
@@ -13,13 +13,19 @@ async function main() {
     // 1. Initialize the Google Gen AI SDK
     const client = new GoogleGenAI({});
 
-    console.log(chalk.blueBright("User > ") + "Explain the difference between a process and a thread in 3 sentences.");
+    const userInput = await getUserInput("User > ");
 
     // 2. Make a basic call to the Interactions API
     // Notice how we don't pass any history or context here!
     const response = await client.interactions.create({
         model: "gemini-3-flash-preview",
-        input: "Explain the difference between a process and a thread in 3 sentences.",
+        input: [{
+            type: "user_input",
+            content: [{
+                type: "text",
+                text: userInput
+            }]
+        }],
 
         // Add Thinking Config
         generation_config: {
@@ -28,7 +34,7 @@ async function main() {
         }
     });
 
-    if (!response.outputs || response.outputs.length === 0) {
+    if (!response.steps || response.steps.length === 0) {
         console.log(chalk.red("No outputs found in the response."));
         return;
     }

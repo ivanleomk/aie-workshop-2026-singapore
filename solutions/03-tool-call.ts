@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import chalk from "chalk";
-import { printRawResponse } from "./lib/console";
+import { printRawResponse, getUserInput } from "./lib/console";
 
 const originalWarn = console.warn;
 console.warn = (...args) => {
@@ -11,13 +11,19 @@ console.warn = (...args) => {
 async function main() {
     const client = new GoogleGenAI({});
 
-    console.log(chalk.blueBright("User > ") + "What's the weather like in Boston right now?");
+    const userInput = await getUserInput("User > ");
 
     // 1. Send a request with a tool attached
     // We are giving the model the ability to call the "get_weather" function
     const response = await client.interactions.create({
         model: "gemini-3-flash-preview",
-        input: "What's the weather like in Boston right now?",
+        input: [{
+            type: "user_input",
+            content: [{
+                type: "text",
+                text: userInput
+            }]
+        }],
         generation_config: {
             thinking_level: "medium",
             thinking_summaries: "auto"
@@ -42,7 +48,7 @@ async function main() {
         }]
     });
 
-    if (!response.outputs || response.outputs.length === 0) {
+    if (!response.steps || response.steps.length === 0) {
         console.log(chalk.red("No outputs found in the response."));
         return;
     }

@@ -17,10 +17,16 @@ async function main() {
     // 2. Make a basic call to the Interactions API
     const response = await client.interactions.create({
         model: "gemini-3-flash-preview",
-        input: "What is the capital of France?"
+        input: [{
+            type: "user_input",
+            content: [{
+                type: "text",
+                text: "What is the capital of France?"
+            }]
+        }]
     });
 
-    if (!response.outputs || response.outputs.length == 0) {
+    if (!response.steps || response.steps.length == 0) {
         console.log(chalk.red("No outputs found in the response."));
         return;
     }
