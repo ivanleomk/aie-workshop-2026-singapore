@@ -1,8 +1,7 @@
 import { GoogleGenAI, Interactions } from "@google/genai";
 import chalk from "chalk";
-import * as readline from "node:readline/promises";
+import { getUserInput, printRawResponse } from "./lib/console";
 import * as fs from "node:fs";
-import { execSync } from "node:child_process";
 import { Daytona, Sandbox } from "@daytona/sdk";
 
 
@@ -48,7 +47,7 @@ class Agent {
         this.client = new GoogleGenAI({});
     }
 
-    async run(currentInput: string | Interactions.Content[]): Promise<Interactions.Interaction> {
+    async run(currentInput: string | Interactions.Step[] | Interactions.Content[]): Promise<Interactions.Interaction> {
         const activeTools = [
             ...Object.values(this.tools).map(t => t.definition),
             { type: "google_search" as const },
@@ -64,25 +63,20 @@ class Agent {
             generation_config: { thinking_level: "medium", thinking_summaries: "auto" }
         });
 
+        // Log the response to a file
+        fs.appendFileSync("09-daytona-sdk.log", JSON.stringify(response, null, 2) + "\n\n", "utf-8");
+
+        printRawResponse(response, true);
+
         // Update interaction ID for the next turn
         this.previousInteractionId = response.id;
 
-        const results: Interactions.Content[] = [];
+        const results: Interactions.Step[] = [];
 
-        for (const output of response.outputs || []) {
-            if (output.type === "thought") {
-                output.summary?.forEach(summaryItem => {
-                    if (summaryItem.type === "text") {
-                        console.log(chalk.dim(`\n[ Thought Summary  ]\n${summaryItem.text}`));
-                    }
-                });
-            } else if (output.type === "text") {
-                console.log(chalk.white(`\n[ text ]\n${output.text}`));
-            } else if (output.type === "function_call") {
-                const funcName = output.name as string;
-                const args = output.arguments;
-
-                console.log(chalk.cyan(`\n[ function_call ] ${funcName}(${JSON.stringify(args)})`));
+        for (const step of response.steps || []) {
+            if (step.type === "function_call") {
+                const funcName = step.name as string;
+                const args = step.arguments;
 
                 let result;
                 if (this.tools[funcName]) {
@@ -91,18 +85,10 @@ class Agent {
                     result = "Error: Tool not found";
                 }
 
-                // Truncate output for readability if it's too long
-                let resultStr = String(result);
-                if (resultStr.length > 500) {
-                    resultStr = resultStr.substring(0, 500) + "... [truncated]";
-                }
-
-                console.log(chalk.green(`[ function_response ]\n${resultStr}`));
-
                 results.push({
                     type: "function_result",
                     name: funcName,
-                    call_id: output.id,
+                    call_id: step.id as string,
                     result: [{ type: "text", text: JSON.stringify(result) }]
                 });
             }
@@ -119,11 +105,6 @@ class Agent {
 }
 
 async function main() {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-
     const context = new Context();
     await context.init();
 
@@ -199,15 +180,16 @@ async function main() {
     const agent = new Agent(
         "gemini-3-flash-preview",
         agentTools,
-        "You are a highly capable AI coding assistant. You can read files, write files, and execute bash commands to solve the user's task.",
+        `You are a highly capable AI coding assistant. You can read files, write files, and execute bash commands to solve the user's task. Today's date is ${new Date().toISOString().split('T')[0]}.`,
         context
     );
 
+    console.log(chalk.green(`Working Directory: ${process.cwd()}`));
     console.log(chalk.green("Google Tools Agent is ready! Type 'exit' or 'quit' to close."));
     console.log(chalk.yellow("Try asking: 'What is the latest news?' or 'Summarize https://en.wikipedia.org/wiki/Artificial_intelligence'\n"));
 
     while (true) {
-        const input = await rl.question(chalk.blueBright("User > "));
+        const input = await getUserInput();
 
         if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
             break;
@@ -218,7 +200,6 @@ async function main() {
         console.log("\n"); // extra newline for formatting
     }
 
-    rl.close();
     await context.cleanup();
 }
 

@@ -1,6 +1,6 @@
 import { GoogleGenAI, Interactions } from "@google/genai";
 import chalk from "chalk";
-import * as readline from "node:readline/promises";
+import { getUserInput, printRawResponse } from "./lib/console";
 import * as fs from "node:fs";
 import { execSync } from "node:child_process";
 
@@ -22,7 +22,7 @@ class Agent {
         this.client = new GoogleGenAI({});
     }
 
-    async run(currentInput: string | Interactions.Content[]): Promise<Interactions.Interaction> {
+    async run(currentInput: string | Interactions.Step[] | Interactions.Content[]): Promise<Interactions.Interaction> {
         const response: Interactions.Interaction = await this.client.interactions.create({
             model: this.model,
             input: currentInput,
@@ -32,29 +32,22 @@ class Agent {
             generation_config: { thinking_level: "medium", thinking_summaries: "auto" }
         });
 
+        // Use our console helper to print the thoughts, text, and function calls nicely
+        printRawResponse(response, true);
+
         // Update interaction ID for the next turn
         this.previousInteractionId = response.id;
 
-        const results: Interactions.Content[] = [];
+        const results: Interactions.Step[] = [];
 
-        response.outputs?.forEach((output: Interactions.Content) => {
-            if (output.type === "thought") {
-                output.summary?.forEach(summaryItem => {
-                    if (summaryItem.type === "text") {
-                        console.log(chalk.dim(`\n[ Thought Summary  ]\n${summaryItem.text}`));
-                    }
-                });
-            } else if (output.type === "text") {
-                console.log(chalk.white(`\n[ text ]\n${output.text}`));
-            } else if (output.type === "function_call") {
-                const funcName = output.name as string;
-                const args = output.arguments;
-
-                console.log(chalk.cyan(`\n[ function_call ] ${funcName}(${JSON.stringify(args)})`));
+        for (const step of response.steps || []) {
+            if (step.type === "function_call") {
+                const funcName = step.name as string;
+                const args = step.arguments;
 
                 let result;
                 if (this.tools[funcName]) {
-                    result = this.tools[funcName].function(args);
+                    result = await this.tools[funcName].function(args);
                 } else {
                     result = "Error: Tool not found";
                 }
@@ -70,11 +63,11 @@ class Agent {
                 results.push({
                     type: "function_result",
                     name: funcName,
-                    call_id: output.id,
+                    call_id: step.id,
                     result: [{ type: "text", text: JSON.stringify(result) }]
                 });
             }
-        });
+        }
 
         // If there were tool calls, recurse and send results back
         if (results.length > 0) {
@@ -87,11 +80,6 @@ class Agent {
 }
 
 async function main() {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-
     const agentTools = {
         readFile: {
             definition: {
@@ -160,14 +148,15 @@ async function main() {
     const agent = new Agent(
         "gemini-3-flash-preview",
         agentTools,
-        "You are a highly capable AI coding assistant. You can read files, write files, and execute bash commands to solve the user's task."
+        `You are a highly capable AI coding assistant. You can read files, write files, and execute bash commands to solve the user's task. Today's date is ${new Date().toISOString().split('T')[0]}.`
     );
 
-    console.log(chalk.green("💻 Coding Agent is ready! Type 'exit' or 'quit' to close."));
+    console.log(chalk.green(`Working Directory: ${process.cwd()}`));
+    console.log(chalk.green("Type 'exit' or 'quit' to close."));
     console.log(chalk.yellow("Try asking: 'Can you list my files in the current directory?'\n"));
 
     while (true) {
-        const input = await rl.question(chalk.blueBright("User > "));
+        const input = await getUserInput("User > ");
 
         if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
             break;
@@ -177,8 +166,6 @@ async function main() {
         await agent.run([{ type: "text", text: input }]);
         console.log("\n"); // extra newline for formatting
     }
-
-    rl.close();
 }
 
 main().catch(console.error);

@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@daytona/sdk": "^0.173.0",
-    "@google/genai": "1.52.0",
+    "@google/genai": "^2.2.0",
     "@pydantic/logfire-node": "^0.14.0",
     "chalk": "^5.6.2",
     "logfire": "^0.14.0"

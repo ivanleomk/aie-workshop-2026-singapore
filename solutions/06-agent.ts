@@ -1,7 +1,6 @@
 import { GoogleGenAI, Interactions } from "@google/genai";
 import chalk from "chalk";
-import { printRawResponse } from "./lib/console";
-import * as readline from "node:readline/promises";
+import { getUserInput, printRawResponse } from "./lib/console";
 
 const originalWarn = console.warn;
 console.warn = (...args) => {
@@ -21,7 +20,7 @@ class Agent {
         this.client = new GoogleGenAI({});
     }
 
-    async run(currentInput: string | Interactions.Content[]): Promise<Interactions.Interaction> {
+    async run(currentInput: string | Interactions.Step[] | Interactions.Content[]): Promise<Interactions.Interaction> {
         const response: Interactions.Interaction = await this.client.interactions.create({
             model: this.model,
             input: currentInput,
@@ -32,23 +31,23 @@ class Agent {
         });
 
         // Print the raw API response so students can see thoughts and tool calls
-        printRawResponse(response);
+        printRawResponse(response, true);
 
         // Update interaction ID for the next turn
         this.previousInteractionId = response.id;
 
-        const results: Interactions.Content[] = [];
+        const results: Interactions.Step[] = [];
 
-        response.outputs?.forEach((output: Interactions.Content) => {
-            if (output.type === "function_call") {
-                const funcName = output.name as string;
-                const args = output.arguments;
+        for (const step of response.steps || []) {
+            if (step.type === "function_call") {
+                const funcName = step.name as string;
+                const args = step.arguments;
 
                 console.log(chalk.cyan(`\n[Function Call] ${funcName}(${JSON.stringify(args)})`));
 
                 let result;
                 if (this.tools[funcName]) {
-                    result = this.tools[funcName].function(args);
+                    result = await this.tools[funcName].function(args);
                 } else {
                     result = "Error: Tool not found";
                 }
@@ -58,11 +57,11 @@ class Agent {
                 results.push({
                     type: "function_result",
                     name: funcName,
-                    call_id: output.id,
+                    call_id: step.id,
                     result: [{ type: "text", text: JSON.stringify(result) }]
                 });
             }
-        });
+        }
 
         // If there were tool calls, recurse and send results back
         if (results.length > 0) {
@@ -75,11 +74,6 @@ class Agent {
 }
 
 async function main() {
-    const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout
-    });
-
     const agentTools = {
         get_weather: {
             definition: {
@@ -97,14 +91,14 @@ async function main() {
     const agent = new Agent(
         "gemini-3-flash-preview",
         agentTools,
-        "You are a helpful assistant."
+        `You are a helpful assistant. Today's date is ${new Date().toISOString().split('T')[0]}.`
     );
 
-    console.log(chalk.green("🤖 Agent is ready! Type 'exit' or 'quit' to close."));
+    console.log(chalk.green("Type 'exit' or 'quit' to close."));
 
     while (true) {
-        const input = await rl.question(chalk.blueBright("\nUser > "));
-        
+        const input = await getUserInput();
+
         if (input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
             break;
         }
@@ -112,8 +106,6 @@ async function main() {
         // Run the agent, which handles all tool calls recursively until finished
         await agent.run([{ type: "text", text: input }]);
     }
-
-    rl.close();
 }
 
 main().catch(console.error);

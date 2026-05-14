@@ -1,0 +1,13 @@
+[
+  {
+    "type": "function_result",
+    "name": "bash",
+    "call_id": "5zikceh7",
+    "result": [
+      {
+        "type": "text",
+        "text": "\"The 250th prime number is 1583\""
+      }
+    ]
+  }
+]
