@@ -1,4 +1,4 @@
-import { GoogleGenAI, Interactions } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import chalk from "chalk";
 import { getUserInput, printRawResponse } from "./lib/console";
 
