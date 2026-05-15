@@ -7,6 +7,11 @@ description: How to define tools, call the Gemini Interactions API with tools, p
 
 Use `@google/genai` and `client.interactions.create()` for tool calling. This is the **Interactions API** — it uses server-side state (`previous_interaction_id`) so you never manually manage history arrays.
 
+### Latest Models
+- `gemini-3.1-pro-preview`
+- `gemini-3.1-flash-lite`
+- `gemini-3-flash-preview`
+
 ## Response Shape at a Glance
 
 Every `interactions.create()` call returns an `Interaction` object. Here are the key fields:
@@ -87,7 +92,7 @@ import { GoogleGenAI } from "@google/genai";
 const client = new GoogleGenAI({});
 
 const response = await client.interactions.create({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     input: "What's the weather like in Boston?",
     tools: tools,
     generation_config: { thinking_level: "medium", thinking_summaries: "auto" }
@@ -122,7 +127,7 @@ const toolCall = response.outputs.find((o: any) => o.type === "function_call");
 const result = getWeather(toolCall.arguments.location);
 
 const response2 = await client.interactions.create({
-    model: "gemini-3-flash-preview",
+    model: "gemini-3.1-pro-preview",
     input: [{
         type: "function_result",
         name: toolCall.name,
