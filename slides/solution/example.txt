@@ -1,5 +1,0 @@
-The Interactions API is designed to make building agents much easier.
-It natively supports:
-- Automatic state management so you don't have to keep track of history.
-- Built in tool execution patterns.
-- Calling external MCP servers easily.

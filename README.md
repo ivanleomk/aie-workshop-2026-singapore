@@ -1,36 +1,54 @@
-# AIE Workshop 2026 - Singapore
+# Prompt to Production: Building Agents with Gemini
 
-Welcome to the AIE 2026 Singapore Workshop repository! This project walks you through building advanced, agentic workflows using the **Google GenAI SDK**, **Daytona**, and **OpenTelemetry (Logfire)**.
+Welcome to the AI Engineer Singapore 2026 workshop repository! In this workshop, you'll learn how to move past brittle LLM scripts and build robust, production-ready coding agents using the **Gemini Interactions API**, **Daytona Sandboxes**, and **Logfire Tracing**.
 
-## Progression Overview
+## 🛠️ Prerequisites
 
-The `solutions/` directory contains a step-by-step progression, demonstrating how to move from basic API calls to a fully-instrumented, autonomous coding agent running in a secure cloud sandbox.
+Before we begin, ensure you have the following installed:
+- [Node.js](https://nodejs.org/en/) (v18 or higher)
+- A code editor (like VS Code, Cursor, or Windsurf)
 
-### Phase 1: Core API Mechanics
-* **`01-basic-api-call.ts`**: The foundational setup. Learn how to authenticate and make a standard text generation request using the GenAI SDK.
-* **`02-generate-config.ts`**: Controlling model behavior. Introduction to configuring the generation parameters (like thinking level and JSON schema structures).
-* **`03-tool-call.ts`**: Connecting external capabilities. Defines a basic tool schema and processes the model's function call request.
+## 🔑 Setup Instructions
 
-### Phase 2: State Management & Agent Loops
-* **`04-stateless-method.ts`**: Manual state management. Demonstrates how to handle a continuous conversation by manually passing the dialogue history back and forth.
-* **`05-interaction-id.ts`**: Server-side state management. The "Aha!" moment—utilizing the new `previous_interaction_id` parameter to let the API maintain the conversational state for you.
-* **`06-agent.ts`**: The first agent loop. Wrapping the previous concepts into a stateful `Agent` class that recursively handles function calling until a final response is generated.
+### 1. Get your API Keys
+You will need a few API keys to complete the full workshop:
+1. **Google Gemini API Key:** Get it from [Google AI Studio](https://aistudio.google.com/app/apikey).
+2. **Daytona API Key (Optional but recommended):** For secure sandboxing in Step 9.
+3. **Logfire Token (Optional but recommended):** For OpenTelemetry tracing in Step 10.
 
-### Phase 3: Building a Coding Agent
-* **`07-coding-agent.ts`**: A practical application. Giving the agent `readFile`, `editFile`, and `bash` tools to act as a local coding assistant.
-* **`08-google-tools.ts`**: Expanding the tool belt. Integrating built-in Google Grounding (Google Search) and URL Context tools to provide the agent with internet access.
-* **`09-daytona-sdk.ts`**: Secure execution. Transitioning the agent's dangerous bash and file execution tools from your local machine to an isolated, ephemeral **Daytona Sandbox**.
+### 2. Configure your Environment
+Clone this repository and set up your `.env` file:
 
-### Phase 4: Observability & Iterative Tuning
-* **`10-adding-otel.ts`**: Adding observability. Instrumenting the entire agent loop using **OpenTelemetry (via Logfire)** to create deep traces. We wrap API calls and tool executions in spans to track latency, token usage, and payloads.
-* **`11-tuning-responses.ts`**: The final experimenting loop. Using the captured Logfire traces to extract the `previous_interaction_id` at specific points in a conversation. This enables developers to inject localized system reminders (e.g. testing new personas or prompt tweaks) and perfectly replay the model's response generation without rerunning the entire conversation loop.
-
----
-
-## How to use
-To run any of the solutions, use the `bun run` command:
 ```bash
-bun run solutions/11-tuning-responses.ts
+git clone https://github.com/ivanleomk/aie-workshop-2026-singapore.git
+cd aie-workshop-2026-singapore
+
+# Install dependencies
+npm install
+
+# Copy the example environment file
+cp .env.example .env
 ```
 
-For the experimenting scratchpad workflow mentioned in step 11, see the corresponding skill guide inside the `.agent/skills/tuning_responses` directory!
+Open `.env` in your editor and paste your API keys.
+
+### 3. Install the Workshop Curriculum Skill
+If you are using an AI Coding Assistant (like Antigravity, Cursor, or Windsurf), we have built a custom AI Skill that acts as the curriculum engine for this workshop. It will teach your AI how to use the Interactions API and guide you step-by-step.
+
+Run this command in your terminal:
+```bash
+npx skills add ivanleomk/aie-workshop-2026-singapore --skill prompt_to_production
+```
+
+> **Note:** Alternatively, you can just open the `.agent/skills/prompt_to_production/SKILL.md` file in your editor to read the instructions manually.
+
+## 🚀 Running the Exercises
+
+The workshop consists of 11 progressive steps. All starting code and solutions are provided in the `/solutions` directory.
+
+To run a specific exercise, you can use `npx tsx`:
+```bash
+npx tsx solutions/01-basic-api-call.ts
+```
+
+If you get stuck, remember to ask your AI assistant: *"Help me with Step X of the Prompt to Production workshop."*
